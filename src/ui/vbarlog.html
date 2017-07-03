@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<head>
+	<link rel="stylesheet" href="css/vbc.css">
+	<script>
+		const $ = require('jquery');
+		const backend = require('../VBCBackend');
+		const ipc = require('electron').ipcRenderer;
+		const util = require('../VBCUtil');
+		const globals = require('../VBCGlobals');
+	</script>
+	<title></title>
+</head>
+
+<body class="body-dialog">
+<div id="vbarlog-title"></div>
+<div id="vbarlog-log"></div>
+
+<script>
+// Set title
+$("title").text(globals.PROGRAM_NAME + " - " + globals.PROGRAM_VERSION);
+
+var logId;
+ipc.on("init", function (event, logIdArg) {
+	logId = logIdArg;
+	backend.init(vbarlogJS);
+});
+
+function vbarlogJS() {
+	backend.getInfoByLogId(logId, function(err, info) {
+		$("#vbarlog-title").text(info.model + " - " + info.battery + " (" + info.date + ")");
+	});
+
+	backend.getVBarLog(logId, function(err, rows) {
+		var $log = $("#vbarlog-log");
+		var t = ""
+		for (row of rows) {
+			t += '<span class="log-severity' + row.severity + '">' + util.html(row.message) + "</span><br />"
+		}
+		$log.html(t);
+	});
+}
+
+</script>
+</body>

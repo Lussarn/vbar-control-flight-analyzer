@@ -1,0 +1,56 @@
+  <form>
+    <div class="form-group">
+      <label for="usr">Altitude unit</label><br />
+      <select id="configuration-altitude-select" class="selectpicker show-tick" data-width="180px">
+         <option value="Meter">Meter</option>
+         <option value="Feet">Feet</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="pwd">Speed unit</label><br />
+      <select id="configuration-speed-select" class="selectpicker show-tick" data-width="180px">
+         <option value="kmh">kmh</option>
+         <option value="mph">mph</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="pwd">Temperature unit</label><br />
+      <select id="configuration-temperature-select" class="selectpicker show-tick" data-width="180px">
+         <option value="Celsius">Celsius</option>
+         <option value="Fahrenheit">Fahrenheit</option>
+      </select>
+    </div>
+  </form>
+
+<script>
+backend.variableGet("altitude-unit", "Meter", function(err, value) {
+   if (err) return callback(err);
+   var $select = $("#configuration-altitude-select");
+   $select.selectpicker();
+   $select.selectpicker("val", value);
+   $select.on("change", function() {
+      backend.variableSet("altitude-unit", $(this).val());
+   });
+});
+
+backend.variableGet("speed-unit", "kmh", function(err, value) {
+   if (err) return callback(err);
+   var $select = $("#configuration-speed-select");
+   $select.selectpicker();
+   $select.selectpicker("val", value);
+   $select.on("change", function() {
+      backend.variableSet("speed-unit", $(this).val());
+   });
+});
+
+backend.variableGet("temperature-unit", "Celsius", function(err, value) {
+   if (err) return callback(err);
+   var $select = $("#configuration-temperature-select");
+   $select.selectpicker();
+   $select.selectpicker("val", value);
+   $select.on("change", function() {
+      backend.variableSet("temperature-unit", $(this).val());
+   });
+});
+
+</script>

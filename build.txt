@@ -1,0 +1,56 @@
+Windows installation
+
+Install github
+https://desktop.github.com
+
+# Run in administrator shell
+Set-ExecutionPolicy RemoteSigned
+# Add to Documents\WindowsPowerShell\profile.ps1
+. (Resolve-Path "$env:LOCALAPPDATA\GitHub\shell.ps1")
+. $env:github_posh_git\profile.example.ps1
+# Needed for native modules to build (this is added by windows-build-tools, make sure you add the correct path version)
+$env:VCTargetsPath="C:\Program Files (x86)\MSBUILD\Microsoft.Cpp\v4.0\V140"
+
+
+
+Install nodejs
+https://nodejs.org
+
+
+install windwows-build-tools in administrator shell
+npm install --global --production windows-build-tools
+
+
+
+Add python to path (powershell)
+$env:path+="c:/users/[username]/.windows-build-tools/python27/"
+
+clone
+git clone git@192.168.1.5:rep/vbc-electron
+
+#install
+npm install
+
+#start
+npm start
+
+
+----------------------
+
+package
+
+# win64
+npm install -g electron-packager
+npm install -g asar
+npm install -g electron-winstaller
+
+# win32 x64 installation...
+electron-packager . --arch=x64 --platform=win32 --out=dist --icon=.\src\ui\asset\logo\logo.ico --overwrite --asar=true
+node .\installers\windows\createinstaller.js
+
+# INSTALLINg using visual studio 2015 community
+timespec in libusb need to be commented /libusb/libusb/os/threads_windows.h
+
+WHEN SQLITE FAILS TO BUILD "TYPERROR" STYLE: 
+reinstall windows-build-tools with --production
+DEFINITELY rimraf node_modules

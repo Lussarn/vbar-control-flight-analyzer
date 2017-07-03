@@ -1,0 +1,708 @@
+@font-face {
+	font-family: "LiberationSans";
+	src: url("font/LiberationSansItalicWeb.ttf");
+	font-style: italic, oblique;
+}
+@font-face {
+	font-family: "LiberationSans";
+	src: url("font/LiberationSansBoldItalicWeb.ttf");
+	font-weight: bold;
+	font-style: italic, oblique;
+}
+@font-face {
+	font-family: "LiberationSans";
+	src: url("font/LiberationSansBoldWeb.ttf");
+	font-weight: bold;
+}
+@font-face {
+	font-family: "LiberationSans";
+	src: url("font/LiberationSansRegularWeb.ttf");
+}
+@font-face {
+	font-family: "StoweTitling";
+	src: url("font/StoweTitling.ttf");
+	font-weight: normal;
+	font-style: normal;
+}
+@font-face {
+	font-family: "LiberationMono";
+	src: url("font/LiberationMono-Regular.ttf");
+	font-weight: normal;
+	font-style: normal;
+}
+
+body {
+	font-family: 'LiberationSans';
+	font-size: 14px;
+	background-color: #f0f0f0;
+	height: 100%;
+	margin: 0px;
+	overflow: hidden;
+}
+
+.body-dialog {
+	background-color: white;
+}
+
+.checkbox-nopadding {
+	margin-top: 0px;
+	margin-bottom: 0px;
+}
+
+/* Tab Navigation */
+.nav-tabs {
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+.nav-tabs > li > a {
+	background: #DADADA;
+	border-radius: 0;
+}
+.nav-tabs > li.active > a,
+.nav-tabs > li.active > a:hover {
+	background: #FFFFFF;
+}
+
+/* Tab Content */
+.tab-pane {
+	background: #FFFFFF;
+	border: 1px solid #DDDDDD;
+	border-radius: 4px;
+	padding: 10px;
+	position: absolute;
+	top: 41px;
+	bottom: 0px;
+	right: 0px;
+	left: 0px;
+/*	overflow: auto */
+}
+
+.progressbar {
+	position: fixed;
+	width: 100%;
+	height: 100%;
+	z-index: 1000000;
+	visibility: hidden;
+}
+
+.progressbar .progressbar-cover {
+	background: radial-gradient(grey, black);
+	position: fixed;
+	z-index: 1;
+	opacity: 0.9;
+	width: 100%;
+	height: 100%;
+}
+
+.progressbar .progressbar-panel {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	height: 120px;
+	width: 500px;
+	opacity: 1;
+	background-color: white;
+	z-index: 2;
+}
+
+.progressbar .progress {
+	position: absolute;
+	top: 50px;
+	left: 110px;
+	right: 10px;
+}
+
+.progressbar .progress-bar {
+    -webkit-transition: none;
+    -ms-transition: none;
+    -o-transition: none;
+    transition: none;
+}
+
+.progressbar .progress-image {
+	position: absolute;
+	background: url('../asset/image/vbar-control.png') no-repeat;
+	top: 8px;
+	left: 6px;
+	height: 100px;
+	width: 100px;
+	z-index: 1000000;
+}
+
+.progressbar .progess-text {
+	position: absolute;
+	top: 84px;
+	height: 30px;
+	left: 110px;
+	right: 10px;
+	text-align: center;
+}
+
+.progressbar .progess-title {
+	position: absolute;
+	top: 10px;
+	left: 110px;
+	right: 10px;
+	padding-bottom: 10px;
+	text-align: center;
+	font-weight: bold;
+	font-size: 16px;
+}
+
+/* Main view CSS */
+#main {
+	position: absolute;
+	padding: 0;
+	margin: 0;
+	top: 0;
+	left: 0;
+	height: 100%;
+	width: 100%;
+	min-width: 1338px;
+	min-height: 800px;
+}
+
+#main-panel-top {
+	position: absolute;
+	top: 10px;
+	left: 10px;
+	right: 10px;
+	height: 82px;
+}
+
+#main-tabs {
+	position: absolute;
+	left: 10px;
+	top: 100px;
+}
+
+#main-panel-content {
+	position: absolute;
+	left: 10px;
+	right: 10px;
+}
+
+#main-panel-status {
+	position: absolute;
+	bottom: -10px;
+	left: 10px;
+	right: 10px;
+	height: 46px;
+	font-family: 'LiberationMono';
+}
+
+#main-panel-model {
+	position: absolute;
+	top: 10px;
+	bottom: -10px;
+	width: 400px;
+	right: 10px;
+}
+
+#main-panel-model-closed {
+	position: absolute;
+	top: 10px;
+	bottom: -10px;
+	width: 44px;
+	right: 10px;
+}
+
+.main-logo {
+	position: absolute;
+	top: 8px;
+	left: 16px;
+	height: 64px;
+	width: 64px;
+	background: url('../asset/logo/logo64.png') no-repeat;
+}
+
+.main-season-change {
+	position: absolute;
+	top: 10px;
+	left: 100px;
+}
+
+.main-model-change {
+	position: absolute;
+	top: 10px;
+	left: 260px;
+}
+
+.main-battery-change {
+	position: absolute;
+	top: 10px;
+	left: 450px;
+}
+
+.main-filter-change {
+	position: absolute;
+	top: 10px;
+	left: 640px;
+}
+
+.main-chart-group-change {
+	position: absolute;
+	top: 10px;
+	left: 640px;
+	visibility: hidden;
+}
+
+#main-import {
+	position: absolute;
+	top: 10px;
+	right: 10px;
+}
+
+#main-configuration {
+	position: absolute;
+	top: 10px;
+	right: 84px;
+}
+
+#main-data-table table {
+	width: 100%;
+}
+
+#main-data-table > .data-table-head-container {
+	position: absolute;
+	top: 0px;
+	left: 0px;
+	right: 0px;
+	height: 24px;
+	overflow-y: hidden;
+	overflow-x: hidden;
+}
+
+#main-data-table > .data-table-body-container {
+	position: absolute;
+	top: 24px;
+	left: 0px;
+	right: 0px;
+	bottom: 0px;
+	overflow-y: scroll;
+	overflow-x: hidden;
+}
+
+
+#main-data-table > .data-table-body-container .header-row td {
+	padding-top: 10px;
+	padding-bottom: 4px;
+	padding-left: 0;
+	padding-right: 0;
+}
+
+#main-data-table > .data-table-body-container .header-row td > div {
+	background: linear-gradient(#aCc2f8, #8Ca2f8);
+	border-top: 1px solid #5C62b8;
+	border-bottom: 1px solid #5C62b8;
+	padding-top: 4px;
+	padding-bottom: 4px;
+	font-size: 16px;
+	font-weight: bold;
+	color: white;
+}
+
+#main-data-table th,
+#main-data-table td {
+	white-space: nowrap;
+	padding-left: 5px;
+	padding-right: 5px;
+	padding-top: 6px;
+	padding-bottom: 6px;
+	margin: 0;
+	overflow: hidden;
+}
+
+#main-data-table > .data-table-head-container th {
+	font-weight: bold;
+}
+
+#main-data-table > .data-table-body-container .header-row > td {
+	width: 100%;
+	text-align: center;
+}
+
+.data-table-active {
+	background-color: #1D3359 !important;
+	color: white;
+
+}
+
+.data-row-light {
+	background-color: #FFFFFF;
+}
+
+.data-row-dark {
+	background-color: #DADADA;
+}
+
+#main-data-table > .data-table-body-container .data-row > td:nth-child(1) {
+	width: 4%;
+}
+
+#main-data-table > .data-table-body-container .data-row > td:nth-child(2) {
+	width: 8%;
+}
+
+#main-data-table > .data-table-body-container .data-row > td:nth-child(3) {
+	width: 12%;
+}
+
+#main-data-table > .data-table-body-container .data-row > td:nth-child(4) {
+	width: 12%;
+}
+
+#main-data-table > .data-table-body-container .data-row > td:nth-child(5) {
+	width: 8%;
+}
+
+#main-data-table > .data-table-body-container .data-row > td:nth-child(6) {
+	width: 8%;
+}
+
+#main-data-table > .data-table-body-container .data-row > td:nth-child(7) {
+	width: 10%;
+}
+
+#main-data-table > .data-table-body-container .data-row > td:nth-child(8) {
+	width: 6%;
+}
+
+#main-data-table > .data-table-body-container .data-row > td:nth-child(9) {
+	width: 6%;
+}
+
+#main-data-table > .data-table-body-container .data-row > td:nth-child(10) {
+	width: 6%;
+}
+
+#main-data-table > .data-table-body-container .data-row > td:nth-child(11) {
+	width: 6%;
+}
+
+#main-data-table > .data-table-body-container .data-row > td:nth-child(12) {
+	width: 6%;
+}
+
+#main-data-table > .data-table-body-container .data-row > td:nth-child(13) {
+	width: 8%;
+}
+
+.vbarlogproblem A {
+	color: red;
+}
+
+.logbook-icon {
+	float: left;
+	padding-left: 10px;
+}
+
+.logbook-note {
+	cursor: pointer;
+}
+
+.model-info-name {
+	position: absolute;
+	left: 10px;
+	right: 10px;
+	top: 40px;
+	height: 50px;
+	font-size: 40px;
+	text-align: center;
+	color: #777777;
+	font-family: 'StoweTitling';
+}
+
+.model-info-image {
+	position: absolute;
+	left: 0px;
+	right: 0px;
+	top: 96px;
+	height: 213px;
+	box-shadow:inset 0px 0px 14px 14px rgba(255,255,255,1);
+}
+
+.model-info-image-remove {
+	position: absolute;
+	top: 20px;
+	right: 28px;
+	width: 20px;
+	height: 20px;
+	color: #880000;
+	font-size: 25px;
+	cursor:pointer;
+}
+
+.model-info-image-drop {
+	position: absolute;
+	top: 50%;
+	height: 50px;
+	margin-top: -50px;
+	left: 0px;
+	right: 0px;
+	text-align: center;
+	color: #777777;
+}
+
+.model-info-image-drop .glyphicon {
+	font-size: 60px;
+	color: #777777;
+}
+
+.model-info-data {
+	position: absolute;
+	left: 10px;
+	right: 10px;
+	top: 318px;
+	height: 165px;
+	border-radius: 4px;
+}
+
+.model-info-data td {
+	padding-top: 10px;
+	padding-left: 10px;
+	font-size: 15px;
+	color: #777777;
+}
+
+.model-info-data td:first-child {
+	padding-right: 50px;
+	padding-left: 34px;
+}
+
+.model-info-data td:last-child {
+	text-align: right;
+}
+
+.model-info-data .main-model-header {
+	font-weight: bold;
+}
+
+.model-info-logbook {
+	position: absolute;
+	border: 1px solid #cccccc;
+	top: 498px;
+	bottom: 10px;
+	left: 10px;
+	right: 10px;
+	padding: 8px;
+}
+
+.CodeMirror {
+	height: 100%
+}
+
+.cm-number {
+	color: #777777 !important;
+	font-family: 'LiberationMono';
+	font-size: 14px;
+}
+
+.cm-keyword {
+	color: #6666cc !important;
+	font-family: 'LiberationSans';
+	font-size: 16px;
+}
+
+.cm-atom {
+	color: #333388 !important;
+	font-family: 'LiberationSans';
+}
+
+
+#main-week-chart {
+	width: 100%;
+	height: 100%;
+	position: absolute;
+	top: 20px;
+	bottom: 70px;
+	z-index: 1;
+}
+
+#main-week-chart .axis {
+	font: 11px 'LiberationSans';
+	font-weight: bold;
+}
+
+.grid line {
+	stroke: lightgrey;
+	stroke-opacity: 0.7;
+	shape-rendering: crispEdges;
+}
+
+.grid path {
+	stroke-width: 0;
+}
+
+#main-week-legend {
+	position: absolute;
+	z-index: 2;
+	opacity: 0.8;
+	top: 40px;
+	right: 50px;
+	width: 300px;
+	height: 100%;
+}
+
+/*
+ *  Telemetry view css
+ */
+#telemetry-title {
+	width: 100%;
+	position: absolute;
+	top: 16px;
+	text-align: center;
+	font-size: 24px;
+}
+
+#telemetry-chart {
+	width: 100%;
+	height: 100%;
+	position: absolute;
+	top: 40px;
+	bottom: 240px;
+}
+
+#telemetry-values-box {
+	width:1000px;
+	margin:0 auto;
+}
+
+#telemetry-values-box > table {
+	height: 120px;
+	position: absolute;
+	bottom: 30px;
+	min-width: 1000px;
+}
+
+#telemetry-values-box > table .values-row td {
+	text-align: center;
+	font: 14px 'LiberationSans';
+}
+
+#telemetry-values-box > table .values-row td:first-child {
+	text-align: right;
+	font-weight: bold;
+}
+
+#telemetry-values-box > table .values-row.values-label td label {
+	font-family: 'LiberationSans';
+	font-size: 12px;
+	font-weight: bold;
+	font: 14px 'LiberationSans';
+	font-weight: bold;
+}
+
+
+#telemetry-chart .lines-group path {
+	stroke-width: 1;
+}
+
+#telemetry-chart .axis path, #telemetry-chart .axis line {
+	fill: none;
+	stroke: black;
+	stroke-width: 1;
+	shape-rendering: crispEdges;
+}
+
+#telemetry-chart .axis-label {
+	font: 11px 'LiberationSans';
+	font-weight: bold;
+}
+
+#telemetry-chart .focus-overlay {
+	fill: none;
+	stroke: none;
+	pointer-events: all;
+	cursor: crosshair;
+}
+
+#telemetry-chart .focus-line {
+	fill: none;
+	stroke: black;
+	stroke-width: 0.5;
+}
+
+#vbarlog-log {
+	background: white;
+	overflow-y: scroll;
+	overflow-x: hidden;
+	position: absolute;
+	top: 60px;
+	bottom: 10px;
+	left: 10px;
+	right: 10px;
+	font-family: 'LiberationMono';
+	font-size: 16px;
+	padding: 10px;
+}
+
+#vbarlog-title {
+	background: white;
+	position: absolute;
+	top: 0px;
+	height: 60px;
+	left: 10px;
+	right: 10px;
+	font-size: 21px;
+	padding: 10px;
+	padding-top: 20px;
+	text-align: center;
+}
+
+.log-severity4 {
+	color: red;
+}
+
+/*
+ *  Map view css
+ */
+ #map-cesium-container {
+	position: absolute;
+	left: 10px;
+	bottom: 10px;
+	top: 60px;
+	right: 300px;
+}
+
+#map-title {
+	position: absolute;
+	left: 10px;
+	top: 20px;
+	right: 300px;
+	height: 30px;
+	text-align: center;
+	font-size: 24px;
+}
+
+#map-data {
+	position: absolute;
+	top: 60px;
+	right: 30px;
+	width: 270px;
+}
+
+#map-data td {
+	padding-top: 10px;
+	padding-left: 10px;
+	font-size: 15px;
+	color: #777777;
+}
+
+#map-data td:first-child {
+	padding-right: 20px;
+	padding-left: 34px;
+	font-weight: bold;
+}
+
+#map-data td:last-child {
+	text-align: right;
+}
+
+#map-save-gpslog {
+	position: absolute;
+	bottom: 10px;
+	right: 10px;
+}

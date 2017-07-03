@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<head>
+	<script>
+		const electron = require('electron')
+		const ipc = electron.ipcRenderer;
+		const app = electron.remote;
+		const dialog = app.dialog;
+		const fs = require("fs");
+		const async = require("async");
+		const $ = require('jquery');
+		global.jQuery = $;
+		require('bootstrap');
+		require('bootstrap-select');
+		const BootstrapDialog = require('bootstrap-dialog');
+		const CodeMirror = require('codemirror');
+
+		// VBC specific requires
+		const globals = require("../VBCGlobals");
+		const util = require('../VBCUtil');
+		const backend = require('../VBCBackend');
+		const kml = require('../VBCKML');
+		const WeekChart = require("./script/weekchart");
+
+	</script>
+	<script src="../../node_modules/codemirror/addon/mode/simple.js"></script>
+	<link rel="stylesheet" href="../../node_modules/bootstrap/dist/css/bootstrap.css">
+	<link rel="stylesheet" href="../../node_modules/bootstrap/dist/css/bootstrap-theme.css">
+	<link rel="stylesheet" href="../../node_modules/bootstrap-select/dist/css/bootstrap-select.min.css">
+	<link rel="stylesheet" href="../../node_modules/bootstrap-dialog/dist/css/bootstrap-dialog.min.css">
+	<link rel="stylesheet" href="../../node_modules/codemirror/lib/codemirror.css">
+	<link rel="stylesheet" href="css/vbc.css">
+	<title></title>
+</head>
+<body>
+
+<div id="main">
+
+<!-- Top panel -->
+<div id="main-panel-top" class="panel panel-default">
+	<div class="panel-body">
+
+		<!-- Analyzer Logo -->
+		<div class="main-logo"></div>
+
+		<!-- Season change selectbox -->
+		<div class="main-season-change">
+			<label>Season</label><br/>
+			<select id="main-season-select" class="selectpicker show-tick" data-width="150px"></select>
+		</div>
+
+		<!-- Model change selectbox -->
+		<div class="main-model-change">
+			<label>Model</label><br/>
+			<select id="main-model-select" class="selectpicker show-tick" data-width="180px"></select>
+		</div>
+
+		<!-- Battery change selectbox -->
+		<div class="main-battery-change">
+			<label>Battery</label><br/>
+			<select id="main-battery-select" class="selectpicker show-tick" data-width="180px"></select>
+		</div>
+
+		<!-- Filter change selectbox -->
+		<div class="main-filter-change">
+			<label>Filter</label><br/>
+			<select id="main-filter-select" class="selectpicker show-tick" data-width="180px">
+				<option value="1">All Startups</option>
+				<option value="0" selected>Only Flights</option>
+			</select>
+		</div>
+
+		<!-- Weekly chart group by selectbox -->
+		<div class="main-chart-group-change">
+			<label>Group as</label><br/>
+			<select id="main-chart-group-select" class="selectpicker show-tick" data-width="180px">
+				<option value="model" selected>Model</option>
+				<option value="battery">Battery</option>
+			</select>
+		</div>
+
+		<!-- Configuration button -->
+		<div id="main-configuration">
+			<label>&nbsp;</label><br/>
+			<button type="button" class="btn btn-info"><span class="glyphicon glyphicon-cog" style="top: 3px;"></span></button>
+		</div>
+
+		<!-- Import button -->
+		<div id="main-import">
+			<label>&nbsp;</label><br/>
+			<button type="button" class="btn btn-danger disabled">Import</button>
+		</div>
+
+	</div>
+</div>
+
+<!-- Content panel -->
+<div id="main-panel-content">
+	<div class="tab-content">
+		<!--  Tab pane data grid -->
+		<div class="tab-pane active in" id="data">
+			<div id="main-data-table">
+
+				<!-- Header for the main table data -->
+				<div class="data-table-head-container">
+					<table class="data-table-head">
+						<thead>
+							<tr>
+								<th class="col1-head">Id</th>
+								<th class="col2-head">Date</th>
+								<th class="col3-head">Model Name</th>
+								<th class="col4-head">Battery Name</th>
+								<th class="col5-head">Flight Time</th>
+								<th class="col6-head">Capacity</th>
+								<th class="col7-head">Consumed</th>
+								<th class="col8-head">MinV</th>
+								<th class="col9-head">MaxA</th>
+								<th class="col10-head">IdleV</th>
+								<th class="col11-head">VBLog</th>
+								<th class="col12-head">UILog</th>
+								<th class="col13-head">GPS</th>
+								<!-- scrollbar width -->
+								<th style="width: 17px"></th>
+							</tr>
+						</thead>
+					</table>
+				</div>
+
+				<!-- Body for the main table data -->
+				<div class="data-table-body-container" class="vbc-scrollbar">
+					<table class="data-table-body">
+						<tbody>
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+
+		<!-- Tab pabe weekly flights -->
+		<div class="tab-pane" id="weekly">
+			<svg id="main-week-legend"></svg>
+			<svg id="main-week-chart"></svg>
+		</div>
+	</div>
+
+	<!-- Buttons tab pane-->
+	<ul class="nav nav-tabs" role="tablist">
+		<li class="active">
+			<a href="#data" role="tab" data-toggle="tab">
+				<icon class="fa fa-home"></icon> Data
+			</a>
+		</li>
+		<li>
+			<a href="#weekly" role="tab" data-toggle="tab">
+				<i class="fa fa-user"></i> Weekly flights
+			</a>
+		</li>
+	</ul>
+</div>
+
+<!-- Status panel -->
+<div id="main-panel-status" class="panel panel-default">
+	<div class="panel-body">
+	</div>
+</div>
+
+<!-- Model panel -->
+<div id="main-panel-model" class="panel panel-default">
+	<div class="panel-body">
+		<!-- Close button -->
+		<button type="button" class="close" data-dismiss="alert" aria-label="Close">
+			<span aria-hidden="true">&times;</span>
+		</button>
+
+		<!-- Model name -->
+		<div class="model-info-name"></div>
+
+		<!-- Model image-->
+		<div class="model-info-image">
+			<div class="model-info-image-remove"><span aria-hidden="true">&times;</span></div>
+			<div class="model-info-image-drop">
+				<span class="glyphicon glyphicon-upload"></span><br />
+				Drop model image here!
+			</div>
+		</div>
+
+		<!-- Model data-->
+		<div class="model-info-data">
+			<table>
+				<tbody>
+					<tr>
+						<td class="main-model-header">TYPE</td>
+						<td class="model-info-data-type"></td>
+					</tr>
+					<tr>
+						<td class="main-model-header">FIRST FLIGHT</td>
+						<td class="model-info-data-first-flight"></td>
+					</tr>
+					<tr>
+						<td class="main-model-header">LAST FLIGHT</td>
+						<td class="model-info-data-last-flight"></td>
+					</tr>
+					<tr>
+						<td class="main-model-header">FLIGHT COUNT</td>
+						<td class="model-info-data-flight-count"></td>
+					</tr>
+					<tr>
+						<td class="main-model-header">TOTAL FLIGHT TIME</td>
+						<td class="model-info-data-flight-time"></td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<!-- Model freetext info -->
+		<div class="model-info-logbook">
+			<textarea class="editor"></textarea>
+		</div>
+	</div>
+</div>
+
+<!-- Model panel closed -->
+<div id="main-panel-model-closed" class="panel panel-default">
+	<div class="panel-body">
+		<!-- Close button -->
+		<button id="model-open" type="button" class="close" data-dismiss="alert" aria-label="Close">
+			<span class="glyphicon glyphicon-chevron-left" style="font-size: 13px"></span>
+		</button>
+	</div>
+</div>
+
+<!-- Progessbar -->
+<div class="progressbar">
+	<!-- Cover to disable GUI -->
+	<div class="progressbar-cover">
+	</div>
+	<div class="progressbar-panel panel panel-default">
+	  <div class="panel-body">
+	  	<div class="progress-image"></div>
+		<div class="progess-title"></div>
+		<div class="progress">
+			<div class="progress-bar" role="progressbar" style="width: 0%;">
+				0%
+			</div>
+		</div>
+		<div class="progess-text"></div>
+	  </div>
+	</div>
+</div>
+</div>
+
+<!-- Configuration -->
+<div class="configuration">
+	<!-- Cover to disable GUI -->
+	<div class="configuration-cover">
+	</div>
+</div>
+
+<script>
+// Set title
+$("title").text(globals.PROGRAM_NAME + " - " + globals.PROGRAM_VERSION);
+
+var mainJS = function() {
+	// Is the model panel open
+	var modelPanelOpen = true;
+
+	// Is the model panel open
+	var modelPanelKeepClosed = false;
+
+	// Model Id of Model Panel
+	var modelPanelModelId = null;
+
+	// HREF attribute of the selected tab
+	var selectedTab;
+
+	// Weekchart object
+	var weekChart = null;
+
+	// Set status message
+	var setStatusMessage = function(message) {
+		$("#main-panel-status .panel-body").html(message);
+	};
+
+	// Setup filter selectbox and set change
+	var $select = $("#main-filter-select");
+	$select.selectpicker();
+	$select.on("change", function() {
+		updateGrid();
+	});
+
+	// Setup group as selectbox and set change
+	var $select = $("#main-chart-group-select");
+	$select.selectpicker();
+	$select.on("change", function() {
+		updateGrid();
+		if (selectedTab == "#weekly" && weekChart) weekChart.load();
+	});
+
+	// Update seasons selectbox
+	var updateSeasons = function(callback) {
+		backend.getSeasons(function(err, seasons) {
+			if (err) return console.error(err);
+			// Add an all seasons to returned array
+			seasons.unshift({
+				year: "All Seasons",
+				count: seasons.reduce(function(sum, season) { return sum + season.count } , 0)
+			});
+
+			// Session selectbox
+			var $select = $("#main-season-select");
+			$select.off("change");
+			$select.selectpicker("destroy");
+			$select.empty();
+			$.each(seasons, function(index, season) {
+				$select.append("<option data-subtext='" + season.count + " flights'>" + season.year + "</option>");
+				if (index == 0 && seasons.length > 1)
+					$select.append("<option data-divider='true'></option>");
+			});
+			$select.selectpicker("render");
+			// Select last
+			$select.selectpicker("val", seasons[seasons.length - 1].year);
+
+			// Change event,
+			// When changing season, models and batteries should update for selected season
+			$select.on("change", function() {
+				updateModels(function() {
+					updateBatteries(function() {
+						updateGrid();
+						if (selectedTab == "#weekly" && weekChart) weekChart.load();
+					});
+				});
+			});
+			if (typeof callback === "function") { callback(); }
+		});
+	};
+
+	// Returns objecf range in season, or null values if all seasons are selected
+	var seasonDateRange = function() {
+		var start = null;
+		var end = null;
+		var season = $("#main-season-select").val();
+		if (season != null && season.length == 4) {
+			start = season + "-01-01";
+			end = (Number(season) + 1) + "-01-01";
+		}
+		return { start: start, end: end };
+	}
+
+	// Update models selectbox
+	var updateModels = function(callback) {
+		// Get date range from season selectbox
+		var dates = seasonDateRange();
+
+		backend.getModels(dates.start, dates.end, function(err, models) {
+			if (err) return console.error(err);
+			// Add all models to selectbox
+			models.unshift({
+				modelId: 0,
+				name: "All Models",
+				cycles: models.reduce(function(sum, model) { return sum + model.cycles } , 0),
+				type: "",
+				thumb: null,
+				info: ""
+			});
+
+			// Models selectbox
+			var $select = $("#main-model-select");
+			$select.off("change");
+			$select.selectpicker("destroy");
+			$select.empty();
+			$.each(models, function(index, model) {
+				$select.append("<option data-subtext='" + model.cycles + " flights' value='" + model.modelId + "'>" + model.name + "</option>");
+				if (index == 0 && models.length > 1)
+					$select.append("<option data-divider='true'></option>");
+			});
+			$select.selectpicker("render");
+			$select.selectpicker("val", 0);
+
+			// Event
+			$select.on("change", function() {
+				updateGrid();
+				if (selectedTab == "#weekly" && weekChart) weekChart.load();
+			});
+			if (typeof callback === "function") { callback(); }
+		});
+	};
+
+	// Update Batteries selectbox
+	var updateBatteries = function(callback) {
+		// Get date range from season selectbox
+		var dates = seasonDateRange();
+
+		backend.getBatteries(dates.start, dates.end, function(err, batteries) {
+			if (err) return console.error(err);
+			// Add all batteries to selectbox
+			batteries.unshift({
+				batteryId: 0,
+				name: "All Batteries",
+				cycles: batteries.reduce(function(sum, battery) { return sum + battery.cycles } , 0)
+			});
+
+			// Batteries selectbox
+			var $select = $("#main-battery-select");
+			$select.off("change");
+			$select.selectpicker("destroy");
+			$select.empty();
+			$.each(batteries, function(index, battery) {
+				$select.append("<option data-subtext='" + battery.cycles + " flights' value='" + battery.batteryId+ "'>" + battery.name + "</option>");
+				if (index == 0 && batteries.length > 1)
+					$select.append("<option data-divider='true'></option>");
+			});
+			$select.selectpicker("render");
+			$select.selectpicker("val", 0);
+
+			// Event
+			$select.on("change", function() {
+				updateGrid();
+				if (selectedTab == "#weekly" && weekChart) weekChart.load();
+			});
+			if (typeof callback === "function") { callback(); }
+		});
+	};
+
+	// Update grid
+	var updateGrid = function() {
+		// Get date range from season selectbox
+		var dates = seasonDateRange();
+
+		// ModelID or null if all models
+		var modelId = $("#main-model-select").val();
+		if (modelId == 0) modelId = null;
+		updateModelInfo(modelId);
+
+		// BatteryID or null if all batteries
+		var batteryId = $("#main-battery-select").val();
+		if (batteryId == 0) batteryId = null;
+
+		// Weekly chart init
+		weekChart = new WeekChart(
+			"#main-week-chart",
+			"#main-week-legend",
+			modelId,
+			batteryId,
+			dates.start,
+			dates.end,
+			$("#main-chart-group-select").val()
+		);
+
+		// Load grid
+		backend.getCycles(
+			modelId,
+			batteryId,
+			dates.start,
+			dates.end,
+			$("#main-filter-select").val() == 1 ? true : false,
+			function(err, cycles) {
+				if (err) return console.error(err);
+
+				// Info parameter is needed for logbook
+				var doUpdate = function(info) {
+					var $tbody = $("#main-data-table tbody");
+
+					// Session for last row, needed for the session headers
+					var lastSession = 0;
+					$tbody.empty();
+
+					var odd = true;
+					for (var i = cycles.data.length - 1; i >= 0; i--) {
+						var data = cycles.data[i];
+
+						if (data.session != lastSession) {
+							// Add session header
+							var html =
+								'<tr class="header-row">' +
+								'<td colspan="13">' +
+								'<div>';
+
+							// Check logbok
+							if (modelId != null) {
+								html += '<span class="logbook-icon logbook-note glyphicon glyphicon-list-alt" style="font-size: 20px" date="' +
+									util.iso8601(data.date).substring(0,10) + '">' +
+ 									'</span>';
+								// Do we have a session row in the model logbook
+								if (info.info.search("## " + util.iso8601(data.date).substring(0,10) + " ##") >= 0) {
+									html += '<span class="logbook-icon glyphicon glyphicon-record" style="font-size: 20px"></span>';
+								}
+							}
+
+							html +=
+								'<span>' + util.iso8601(data.date).substring(0,10) + '</span>' +
+								'</div>' +
+								'</td>' +
+								'</tr>';
+							$tbody.append(html);
+							var odd = true;
+						}
+
+						// Model grid row
+						$tbody.append(
+							'<tr model-id="' + data.modelId + '" class="data-row ' + (odd ? "data-row-light" : "data-row-dark") + '">' +
+							'<td>' + data.logId + '</td>' +
+							'<td>' + util.iso8601(data.date) + '</td>' +
+							'<td>' + util.html(data.model) + '</td>' +
+							'<td>' + util.html(data.battery) + '</td>' +
+							'<td>' + data.duration + '</td>' +
+							'<td>' + data.capacity + '</td>' +
+							'<td>' + data.used + '</td>' +
+							'<td>' + data.minv + '</td>' +
+							'<td>' + data.maxa + '</td>' +
+							'<td>' + data.idlev + '</td>' +
+							'<td class="show-vbarlog ' + (data.haveVBarLogProblem ? "vbarlogproblem" :"")+ '">' + (data.haveVBarLog ? '<a href="#" logid="' + data.logId + '">Show</a>' : '') + '</td>' +
+							'<td class="show-uilog">' + (data.haveUILog ? '<a href="#" logid="' + data.logId + '">Show</a>' : '') + '</td>' +
+							'<td class="show-map">' + (data.haveGPSLog ? '<a href="#" logid="' + data.logId + '">Show</a>' : "") + '</td>' +
+							'</tr>'
+						);
+
+						odd = !odd;
+						lastSession = data.session;
+					}
+
+					// Set status bar
+					setStatusMessage(
+						"Cycles: " + cycles.totals.cycles +
+						" &nbsp; Used capacity: " + cycles.totals.used + "Ah" +
+						" &nbsp; Runtime: " + cycles.totals.duration +
+						" &nbsp; Sessions: " + cycles.totals.sessions
+					);
+
+					// Activate row
+					$tbody.find(".data-row").on("click", function() {
+						$tbody.find(".data-row").removeClass("data-table-active");
+						$tr = $(this);
+						$tr.addClass("data-table-active");
+						updateModelInfo($tr.attr("model-id"));
+					});
+
+					// click event for vbarlog log
+					$tbody.find(".show-vbarlog A").on("click", function() {
+						var logId = $(this).attr("logid");
+						ipc.send('load-vbarlog', logId);
+					});
+
+					// click event for temeletry log
+					$tbody.find(".show-uilog A").on("click", function() {
+						var logId = $(this).attr("logid");
+						ipc.send('load-telemetry', logId);
+					});
+
+					// click event for map
+					$tbody.find(".show-map A").on("click", function() {
+						var logId = $(this).attr("logid");
+						ipc.send('load-map', logId);
+					});
+
+					// Click event for the logbook note
+					$tbody.find(".logbook-note").on("click", function() {
+						var date = new Date($(this).attr("date"));
+						var text = editor.getDoc().getValue();
+						var ret = insertDate(text, date);
+						editor.focus();
+						editor.getDoc().setValue(ret.text);
+						editor.getDoc().setCursor({line: ret.text.substring(0, ret.pos).split("\n").length - 1, ch: 0});
+					});
+
+					updateUI();
+					// Scroll to top
+					$(".data-table-body-container").animate({ scrollTop: 0 }, "fast");
+				}
+
+				// Load the grid
+				if (modelId != null) {
+					// We need to model info for the logbook
+					backend.getModelInfo(modelId, function(err, info) {
+						if (err) return console.error(err);
+						doUpdate(info);
+					});
+				} else {
+					// No model
+					doUpdate(null);
+				}
+
+			}
+		);
+	}
+
+	// setup timer for check of vcontrol
+	var vcontrolPathTimer = setInterval(function() {
+		var path = backend.getVcontrolPath();
+		if (path != null) {
+			$("#main-import button")
+				.removeClass("btn-danger")
+				.removeClass("disabled")
+				.addClass("btn-success")
+				.off("click").on("click", function() {
+					// Import logs
+					progressOpen("Importing Logs");
+					backend.importLogs(function(message) {
+						if (message.completed) {
+							progressClose();
+							// Update Sessions, Model, Battery
+							updateModels(function() {
+								updateBatteries(function() {
+									updateGrid();
+								});
+							});
+							updateSeasons(updateGrid);
+						} else {
+							progressValue(message.percent, message.status);
+						}
+					});
+				});
+		} else {
+			$("#main-import button")
+				.removeClass("btn-success")
+				.addClass("btn-danger")
+				.addClass("disabled")
+				.off("click");
+		}
+	}, 1000);
+
+	// Open progressbar
+	var progressOpen = function(title) {
+		$(".progressbar .progess-title").text(title);
+		progressValue(0, "");
+		$(".progressbar").css("visibility", "visible");
+	}
+
+	// Close progressbar
+	var progressClose = function() {
+		progressValue(0, "");
+		$(".progressbar").css("visibility", "hidden");
+	}
+
+	// Set progressbar value
+	var progressValue = function(percent, message) {
+		$(".progressbar .progress-bar").css("width", percent + "%");
+		$(".progressbar .progress-bar").text(parseInt(percent) + "%");
+		$(".progressbar .progess-text").text(message);
+	}
+
+	// Model panel open
+	$("#model-open").on("click", function(event) {
+		modelPanelOpen = true;
+		modelPanelKeepClosed = false;
+		updateUI();
+		if (selectedTab == "#weekly" && weekChart) weekChart.load();
+	});
+
+	// Model panel close
+	$("#main-panel-model .close").on("click", function(event) {
+		modelPanelOpen = false;
+		modelPanelKeepClosed = true;
+		updateUI();
+		if (selectedTab == "#weekly" && weekChart) weekChart.load();
+	});
+
+	// Connect configuration
+	$("#main-configuration button").off("click").on("click", function() {
+		BootstrapDialog.show({
+			title: 'Configuration',
+			buttons: [{
+				label: 'Close',
+				action: function(dialog) {
+					dialog.close();
+				}
+			}],
+			message: $('<div></div>').load('configuration.html')
+		});
+	});
+
+	// Codemirror Syntax hilighting for logbook
+	CodeMirror.defineSimpleMode("modelinfomode", {
+	  // The start state contains the rules that are intially used
+	  start: [
+	    // The regex matches the token, the token property contains the type
+	    {regex: /## \d\d\d\d-\d\d-\d\d ##/, token: "keyword", next: "comment"},
+	    {regex: /.*/, token: "number" },
+	  ],
+	  comment: [
+	    {regex: /## \d\d\d\d-\d\d-\d\d ##/, token: "keyword", next: "comment"},
+	    {regex: /.*/, token: "atom" },
+	  ]
+	});
+
+	// Initialize CodeMirror  forlogbook
+	var editor = CodeMirror.fromTextArea($(".model-info-logbook .editor").get(0), {
+		lineNumbers: false,
+		lineWrapping: true,
+		scrollbarStyle: null,
+		mode: "modelinfomode"
+	});
+
+	// Timers for models, the timer saves the logbook every second
+	var infoTimer = [];
+	editor.on("changes", function(cm, change) {
+		if (modelPanelModelId == null) return;
+		var modelId = modelPanelModelId;
+		var info =  editor.getValue();
+		if (typeof infoTimer[modelId] != "undefined") {
+			clearTimeout(infoTimer[modelId]);
+		}
+
+		infoTimer[modelId] = setTimeout(function() {
+			backend.setModelInfo(modelId, info);
+			delete infoTimer[modelId];
+		}, 1000);
+	});
+
+	// Insert date in logbook string
+	var insertDate = function(str, findDate) {
+		var reg = new RegExp(/## \d\d\d\d-\d\d-\d\d ##/g);
+		var result;
+		while((result = reg.exec(str)) !== null) {
+			var matchDate = new Date(result[0].substring(3,13));
+			// Check for invalid date
+			if (isNaN(matchDate.getTime())) continue;
+			var start = result.index;
+
+			if (matchDate.getTime() > findDate.getTime()) {
+				var str = str.substring(0, start) + "## " + util.iso8601(findDate).substring(0,10) + " ##\n\n" + str.substring(start);
+				return { text: str, pos: start + 17 };
+			}
+
+			if (matchDate.getTime() == findDate.getTime()) {
+				return { text: str, pos: start + 17 };
+			}
+		}
+		str = (str.trimRight() + "\n\n## " + util.iso8601(findDate).substring(0,10).trimLeft()) + " ##\n\n";
+		return { text: str, pos: str.length - 1 };
+	}
+
+	// Load and update model
+	var updateModelInfo = function(modelId) {
+//		modelPanelModelId = null;
+		if (modelId == null) {
+			// No model, clear info
+			$(".model-info-name").text("");
+			$(".model-info-data-type").text("");
+			$(".model-info-data-first-flight").text("");
+			$(".model-info-data-last-flight").text("");
+			$(".model-info-data-flight-count").text("");
+			$(".model-info-data-flight-time").text("");
+			setModelPaneModelId(null);
+			editor.getDoc().setValue("");
+			$(".model-info-image").css("visibility", "hidden");
+			return;
+		}
+		backend.getModelInfo(modelId, function(err, info) {
+			if (err) return console.error(err);
+			modelPanelModelId = modelId;
+			setModelPaneModelId(modelPanelModelId);
+			$(".model-info-image").css("visibility", "inherit");
+			$(".model-info-name").text(info.name);
+			$(".model-info-data-type").text(info.type);
+			$(".model-info-data-first-flight").text(info.firstCycle == null ? "Never" : util.iso8601(info.firstCycle).substring(0,10));
+			$(".model-info-data-last-flight").text(info.lastCycle == null ? "Never" : util.iso8601(info.lastCycle).substring(0,10));
+			$(".model-info-data-flight-count").text(info.cycles);
+			$(".model-info-data-flight-time").text(info.flightTime);
+			if (info.image != null) {
+				// Set image
+				$(".model-info-image").css("background", "url(" + info.image.toDataURL() + ") no-repeat");
+				$(".model-info-image").css("background-size", "cover");
+				$(".model-info-image-drop").css("opacity", 0);
+				if (modelPanelKeepClosed == false) {
+					$(".model-info-image-remove").css("visibility", "visible");
+				}
+			} else {
+				// No image yet
+				$(".model-info-image").css("background","");
+				$(".model-info-image-drop").css("opacity", 1);
+				$(".model-info-image-remove").css("visibility", "hidden");
+			}
+			editor.getDoc().setValue(info.info);
+		});
+	}
+
+	var setModelPaneModelId = function(modelId) {
+		modelPanelModelId = modelId;
+		if (modelPanelModelId == null) {
+			modelPanelOpen  = false;
+			updateUI();
+		} else {
+			if (!modelPanelKeepClosed) modelPanelOpen  = true;
+			updateUI();
+		}
+	}
+
+	// Drag drop model image
+	document.ondragover = document.ondrop = (ev) => {
+		ev.preventDefault()
+	}
+	$(".model-info-image")[0].ondrop = (ev) => {
+		var image = electron.nativeImage.createFromPath(ev.dataTransfer.files[0].path);
+		if (image.isEmpty()) return ;
+		if (modelPanelModelId == null) return;
+		backend.setModelImage(modelPanelModelId, image, function(err) {
+			if (err) return;
+			updateModelInfo(modelPanelModelId);
+		});
+		ev.preventDefault()
+	}
+
+	// Remove image event
+	$(".model-info-image-remove").on("click", function(e) {
+		if (modelPanelModelId == null) return;
+		backend.setModelImage(modelPanelModelId, null, function(err) {
+			if (err) return;
+			updateModelInfo(modelPanelModelId);
+		});
+	});
+
+	// Tab event
+	$('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+		selectedTab = $(e.target).attr("href"); // activated tab
+		if (selectedTab == "#weekly" && weekChart != null) {
+			weekChart.load();
+		}
+		if (selectedTab == "#weekly") {
+			$("#main-chart-group-change").css("visibility", "visible");
+			$("#main-filter-change").css("visibility", "hidden");
+		} else {
+			$("#main-chart-group-change").css("visibility", "hidden");
+			$("#main-filter-change").css("visibility", "visible");
+		}
+	});
+
+	// Update the UI, mainly resizing the absulute positioned panels
+	var updateUI = function() {
+		var modelPanelWidth = modelPanelOpen ? parseInt($("#main-panel-model").css("width")) : parseInt($("#main-panel-model-closed").css("width"));
+
+		$("#main-panel-top")
+			.css("right", (modelPanelWidth + 20) + "px");
+
+		$("#main-panel-content")
+			.css("top", ($("#main-panel-top").offset().top + parseInt($("#main-panel-top").css("height")) + 10) + "px")
+			.css("height", ($("#main-panel-status").offset().top - $("#main-panel-content").offset().top - 10) + "px")
+			.css("right", (modelPanelWidth + 20) + "px");
+
+		$("#main-panel-model")
+			.css("height", ($("#main-panel-status").offset().top - $("#main-panel-model").offset().top - 10) + "px");
+		$("#main-panel-model")
+			.css("visibility", modelPanelOpen ? "visible" : "hidden");
+
+		$(".model-info-image-remove")
+			.css("visibility", modelPanelOpen && ($(".model-info-image-drop").css("opacity") == 0) ? "visible" : "hidden");
+
+		$("#main-panel-model-closed")
+			.css("height", ($("#main-panel-status").offset().top - $("#main-panel-model").offset().top - 10) + "px");
+		$("#main-panel-model-closed")
+			.css("visibility", modelPanelOpen ? "hidden" : "visible");
+
+
+		$("#model-open").css("visibility", modelPanelModelId == null ? "hidden" : "inherit");
+
+		// Set the width of the grid headers same as the grid data
+		$("#main-data-table .data-row:first td").each(function (index) {
+			var $source = $(this);
+			var $dest = $("#main-data-table .col" + (index + 1) + "-head");
+
+			var width = $source.width() + parseInt($source.css("padding-right")) + parseInt($source.css("padding-left"));
+
+			$dest.css("min-width", width + "px");
+			$dest.css("max-width", width + "px");
+			$dest.css("width", width + "px");
+		});
+	};
+
+	// Setup resize event
+	var resizeTimer = null;
+	$(window).resize(function(e) {
+		if (resizeTimer) clearTimeout(resizeTimer);
+		resizeTimer = setTimeout(function() {
+			backend.setWindowDimensions(window.outerWidth, window.outerHeight);
+			resizeTimer = null;
+		}, 1000);
+		updateUI();
+	});
+
+	// Load startup data
+	updateModels();
+	updateBatteries();
+	updateSeasons(function() { updateGrid(); });
+};
+
+backend.init(mainJS);
+</script>
+</body>

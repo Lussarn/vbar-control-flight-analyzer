@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+
+<head>
+	<script>
+		const electron = require('electron');
+		const ipc = electron.ipcRenderer;
+		var app = electron.remote;
+		var dialog = app.dialog;
+
+		const $ = require('jquery');
+		global.jQuery = $;
+		const async = require("async");
+		require('bootstrap');
+		var globals = require("../VBCGlobals");
+		const util = require('../VBCUtil');
+		const backend = require('../VBCBackend');
+		const kml = require('../VBCKML');
+	</script>
+	<script src="../../node_modules/cesium/Build/Cesium/Cesium.js"></script>
+	<link rel="stylesheet" href="../../node_modules/bootstrap/dist/css/bootstrap.css">
+	<link rel="stylesheet" href="../../node_modules/bootstrap/dist/css/bootstrap-theme.css">
+	<link rel="stylesheet" href="../../node_modules/bootstrap-select/dist/css/bootstrap-select.min.css">
+	<link rel="stylesheet" href="css/vbc.css">
+	<style>
+	@import url(../../node_modules/cesium/Build/Cesium/Widgets/widgets.css);
+
+	body {
+		background-color: white;
+	}
+
+	</style>
+	<title></title>
+</head>
+
+<body>
+	<div id="map-title"></div>
+	<div id="map-cesium-container"></div>
+	<div id="map-data">
+	<table>
+		<tbody>
+			<tr>
+			<td>TIME</td>
+			<td id="data-time"></td>
+			</tr>
+			<tr>
+			<td>SPEED</td>
+			<td id="data-speed"></td>
+			</tr>
+			<tr>
+			<td>ALTITUDE</td>
+			<td id="data-height"></td>
+			</tr>
+			<tr>
+			<td>VOLTAGE</td>
+			<td id="data-voltage"></td>
+			</tr>
+			</tr>
+			<tr>
+			<td>CURRENT</td>
+			<td id="data-current"></td>
+			</tr>
+			</tr>
+			<tr>
+			<td>POWER</td>
+			<td id="data-power"></td>
+			</tr>
+			</tr>
+			<tr>
+			<td>HEADSPEED</td>
+			<td id="data-headspeed"></td>
+			</tr>
+			<tr>
+			<td>PWM</td>
+			<td id="data-pwm"></td>
+			</tr>
+		</tbody>
+	</table>
+	</div>
+	<div id="map-save-gpslog"><a href="#">Save KML</a></div>
+
+<script>
+// Set title
+$("title").text(globals.PROGRAM_NAME + " - " + globals.PROGRAM_VERSION);
+
+var logId;
+ipc.on("init", function (event, logIdArg) {
+	logId = logIdArg;
+	backend.init(init);
+});
+
+var altitudeUnit = '';
+var speedUnit = '';
+var TemperatureUnit = '';
+
+function init() {
+	async.waterfall([
+		function(callback) {
+			backend.variableGet("altitude-unit", "M", function(err, value) {
+				altitudeUnit = value;
+				callback(null);
+			});
+		},
+		function(callback) {
+			backend.variableGet("speed-unit", "kmh", function(err, value) {
+				speedUnit = value;
+				callback(null);
+			});
+		},
+		function(callback) {
+			backend.variableGet("temperature-unit", "C", function(err, value) {
+				TemperatureUnit = value;
+				callback(null);
+			});
+		},
+		function(callback) {
+			mapJS();
+			callback(null);
+		}
+	]);
+}
+
+function mapJS() {
+
+	// click event for save KML log
+	$("#map-save-gpslog A").on("click", function() {
+		kml.save(logId, function(err) {
+		});
+	});
+
+
+	backend.getInfoByLogId(logId, function(err, info) {
+		$("#map-title").text(info.model + " - " + info.battery + " (" + info.date + ")");
+	});
+
+	backend.getTelemetryLog(logId, function(err, gpsLog) {
+
+		var m = [];
+		var s = false;
+		var groundHeight = 99999999;
+		var maxSpeed = 0;
+		var maxHeight = 0;
+		var startHeight = gpsLog.data[0].height;
+		var maxSpeedIndex = 0;
+		var maxHeightIndex = -1000000;
+		for (var i = 0; i < gpsLog.data.length; i++) {
+			gps = gpsLog.data[i];
+			if (gps.height != startHeight) {
+				s = true;
+				if (groundHeight > gps.height) groundHeight = gps.height;
+				if (maxSpeed < gps.speed) {
+					maxSpeed = gps.speed;
+					maxSpeedIndex = m.length + 1;
+				}
+				if (maxHeight < gps.height) {
+					maxHeight = gps.height;
+					maxHeightIndex = m.length + 1;
+				}
+			}
+			if (s) {
+				m.push(gps);
+			} else {
+			}
+		}
+		gpsLog.data = m;
+
+		Cesium.BingMapsApi.defaultKey = 'AjQ0dPSei5X5tnQPcsDNsb7SkBJyx0NvZtlVCAdPKhAXeMUM1ZxbZ1hicPg30pAx';
+
+		var viewer = new Cesium.Viewer('map-cesium-container', {
+			selectionIndicator : true,
+			fullscreenButton: false,
+			baseLayerPicker: false,
+			geocoder: false,
+			homeButton: false,
+			sceneModePicker: false,
+			timeline: false,
+			navigationHelpButton: true,
+			animation : false,
+
+			navigationInstructionsInitiallyVisible: false,
+			infoBox: true
+		});
+
+		// If the mouse is over the billboard, change its scale and color
+		handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+
+		handler.setInputAction(function(click) {
+			var pickedObjects = viewer.scene.drillPick(click.position);
+			var pickedObject = null;
+			for (var i = 0; i < pickedObjects.length; i++) {
+				pickedObject = pickedObjects[i];
+				if (pickedObject.id._id.substring(0, 6) == "point-") break;
+			}
+			if (pickedObject.id._id.substring(0, 6) != "point-") return;
+			viewer.selectedEntity = pickedObject.id;
+			var gpsIndex = parseInt(pickedObject.id._id.substring(6));
+
+			var gps = gpsLog.data[gpsIndex];
+			$("#data-time").text((Math.round(gps.sec * 10)/10) + " Seconds");
+
+			var speed = (gps.speed);
+			if (speedUnit == "mph") {
+				speed *= 0.621371192;
+			}
+			$("#data-speed").text(Math.round(speed * 10) / 10 + " " + speedUnit);
+
+			var altitude = (gps.height - groundHeight)
+			if (altitudeUnit == "Feet") {
+				altitude *= Math.round(3.280839895);
+			}
+			$("#data-height").text(altitude + " " + altitudeUnit);
+
+			$("#data-voltage").text( gps.voltage+"V");
+			$("#data-current").text( gps.current +"A");
+			$("#data-power").text( Math.round(gps.voltage * gps.current) + "W");
+			$("#data-headspeed").text( gps.headspeed +" RPM");
+			$("#data-pwm").text( gps.pwm +"%");
+
+		}, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+		// Loop the coordinates
+		var colors = [];
+		var linePositions = [];
+		for (var i = 0; i < gpsLog.data.length - 2; i++) {
+			var gps = gpsLog.data[i];
+
+			var speedRel = 1.0 - (maxSpeed - Number(gps.speed)) / maxSpeed;
+			if (speedRel < 0.5) {
+				colors[i] = new Cesium.Color((2 * speedRel), 1.0, 0, 0.7);
+			} else {
+				colors[i] = new Cesium.Color(speedRel, 1.0 - speedRel, 0, 0.7);
+			}
+
+			viewer.entities.add({
+				position : Cesium.Cartesian3.fromDegrees(gps.longitude, gps.latitude, gps.height - groundHeight),
+				point : {
+					pixelSize : 15,
+					color : colors[i]
+				},
+				id: "point-" + i
+			});
+
+			// Ground lines
+			viewer.entities.add({
+				position : Cesium.Cartesian3.fromDegrees(gps.longitude, gps.latitude, gps.height - groundHeight),
+				polyline: {
+					width: 0.5,
+					positions: [
+						Cesium.Cartesian3.fromDegrees(gps.longitude, gps.latitude, gps.height - groundHeight),
+						Cesium.Cartesian3.fromDegrees(gps.longitude, gps.latitude, 0)
+					]
+				}
+			});
+
+			// Max Speed
+			if (i == maxSpeedIndex) {
+				viewer.entities.add({
+					position : Cesium.Cartesian3.fromDegrees(gps.longitude, gps.latitude, gps.height - groundHeight + 50 + 4),
+					polyline: {
+						material: new Cesium.PolylineOutlineMaterialProperty({
+							color : Cesium.Color.RED,
+						}),
+						width: 2,
+						positions: [
+							Cesium.Cartesian3.fromDegrees(gps.longitude, gps.latitude, gps.height - groundHeight + 50),
+							Cesium.Cartesian3.fromDegrees(gps.longitude, gps.latitude, gps.height - groundHeight + 4)
+						],
+
+					},
+					label : {
+						text : 'Max speed: ' + maxSpeed + " kmh",
+						font : '24px sans-serif',
+						fillColor: Cesium.Color.WHITE
+					}
+				});
+			}
+
+			// Max Height
+			if (i == maxHeightIndex) {
+				viewer.entities.add({
+					position : Cesium.Cartesian3.fromDegrees(gps.longitude, gps.latitude, gps.height - groundHeight + 50 + 4),
+					polyline: {
+						material: new Cesium.PolylineOutlineMaterialProperty({
+							color : Cesium.Color.RED,
+						}),
+						width: 2,
+						positions: [
+							Cesium.Cartesian3.fromDegrees(gps.longitude, gps.latitude, gps.height - groundHeight + 50),
+							Cesium.Cartesian3.fromDegrees(gps.longitude, gps.latitude, gps.height - groundHeight + 4)
+						],
+
+					},
+					label : {
+						text : 'Max altitude: ' + (maxHeight - groundHeight) + " meters",
+						font : '24px sans-serif',
+						fillColor: Cesium.Color.WHITE
+					}
+				});
+			}
+
+			linePositions.push(Cesium.Cartesian3.fromDegrees(gps.longitude, gps.latitude, gps.height - groundHeight));
+
+			if (i == 0) {
+				viewer.camera.setView({
+					destination : Cesium.Cartesian3.fromDegrees(gps.longitude, gps.latitude, gps.height - groundHeight + 1000),
+					orientation: {
+						heading : Cesium.Math.toRadians(0),
+						pitch : Cesium.Math.toRadians(0 - 90.0),
+						roll : Cesium.Math.toRadians(0)
+					}
+				});
+			}
+		}
+
+		// Draw the flight lines
+		viewer.entities.add({
+			polyline : {
+				positions: linePositions,
+				width : 5,
+				material: new Cesium.PolylineOutlineMaterialProperty({
+					color : Cesium.Color.WHITE,
+					outlineWidth : 3,
+					outlineColor : Cesium.Color.BLACK
+				})
+			}
+		});
+	});
+}
+
+
+</script>
+</body>
+</html>

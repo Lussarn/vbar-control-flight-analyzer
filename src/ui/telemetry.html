@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+
+<head>
+<!--
+	<link rel="stylesheet" href="bootstrap/css/bootstrap.min.css">
+	<link rel="stylesheet" href="bootstrap/css/bootstrap-theme.min.css">
+-->
+	<link rel="stylesheet" href="css/vbc.css">
+	<script>
+		const $ = require('jquery');
+		const d3 = require('d3');
+		const backend = require('../VBCBackend');
+		const ipc = require('electron').ipcRenderer;
+		const globals = require("../VBCGlobals");
+		const async = require("async");
+	</script>
+	<title></title>
+</head>
+
+<body class="body-dialog">
+<svg id="telemetry-chart"></svg>
+<div id="telemetry-values-box">
+	<table>
+		<tr class="values-row values-label">
+			<td></td>
+		</tr>
+		<tr class="values-row min">
+			<td>Min</td>
+		</tr>
+		<tr class="values-row max">
+			<td>Max</td>
+		</tr>
+		<tr class="values-row average">
+			<td>Average</td>
+		</tr>
+		<tr class="values-row mouse">
+			<td>Mouse</td>
+		</tr>
+	</table>
+</div>
+<div id="telemetry-title"></div>
+
+<script>
+
+// Set title
+$("title").text(globals.PROGRAM_NAME + " - " + globals.PROGRAM_VERSION);
+
+function drawChart(data, enabledLines) {
+	// Set runTime
+	var runTime = d3.max(data[0].values, function(d) { return d.sec; });
+
+	// Create sizes
+	var margin = {
+		top: parseInt(d3.select("#telemetry-chart").style("top")),
+		right: 200,
+		bottom: parseInt(d3.select("#telemetry-chart").style("bottom")),
+		left: 200
+	},
+	width =  parseInt(d3.select("#telemetry-chart").style("width")) - margin.left - margin.right,
+	height = parseInt(d3.select("#telemetry-chart").style("height")) - margin.top - margin.bottom,
+	axisWidth = 60;
+
+	// Create number formats
+	numberFormats = [];
+	var valuesInView = [];
+	for (var i = 0; i < data.length; i++) {
+		numberFormats[i] = d3.format(data[i].numberFormat);
+		valuesInView[i] = data[i].values;
+	}
+
+	// Setup scales
+	var xScale = d3.scaleLinear()
+		.range([0, width]) // output range x
+		.domain([0, runTime]); // input range x
+
+	var yScales = [];
+	for (var i = 0; i < data.length; i++) {
+		yScales[i] = d3.scaleLinear()
+			.range([0, height]) // output range y
+			.domain([d3.max(data[i].values, function(d) { return d.value * data[i].multiplier; }), 0]); // input range y
+	}
+
+	// Setup Axes
+	var xAxisLower = d3.axisBottom().scale(xScale)
+		.ticks(10);
+	var xAxisUpper = d3.axisTop().scale(xScale)
+		.ticks(10);
+
+	var yAxes = [];
+	for (var i = 0; i < data.length; i++) {
+		if (data[i].orient == 'left')
+			axisFunc = d3.axisLeft;
+		else
+			axisFunc = d3.axisRight;
+		yAxes[i] = axisFunc()
+			.scale(yScales[i])
+			.ticks(10);
+	}
+
+	// Setup Zoom
+	var zoom = d3.zoom()
+		.scaleExtent([1.0, 20.0])
+		.on('zoom', zoomed);
+
+	// Remove everything from chart
+	d3.select("#telemetry-chart").selectAll("*").remove();
+
+	// Create root element
+	var svg = d3.select("#telemetry-chart")
+		.attr("width", width + margin.left + margin.right)
+		.attr("height", height + margin.top + margin.bottom);
+
+	// The chart must be a g element for zooming
+	var chart = svg.append("g")
+		.call(zoom)
+		.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+	// Setup zoom rectangle
+	var rect = chart.append("rect")
+		.attr("width", width)
+		.attr("height", height)
+		.style("fill", "none")
+		.style("pointer-events", "all");
+
+	// Add Lower X Axis
+	chart.append("g")
+		.attr("class", "x axis lower")
+		.attr("transform", "translate(0," + height + ")")
+		.call(xAxisLower);
+
+	// Add Upper X Axis
+	chart.append("g")
+		.attr("class", "x axis upper")
+		.attr("transform", "translate(0,0)")
+		.call(xAxisUpper);
+
+	// Fill in values table
+	for (var i = 0; i < data.length; i++) {
+		var toggleHTML = function(index, label) {
+			return ''
+				+ '<div class="form-inline">'
+				+ '<div class="checkbox-inline line' + index + '" style="line-height: 26px">'
+				+ ' <label>'
+				+ '  <input line="' + index + '" type="checkbox" value="" ' + (enabledLines[i] == 1 ? "checked='checked'" : "") + '" />'
+				+ '&nbsp;' + label
+				+ ' </label>'
+				+ ' </div>'
+				+ '</div>';
+		}
+
+		d3.select("#telemetry-values-box > table .values-label").append("td")
+			.style("color", data[i].color)
+			.html(toggleHTML(i, data[i].label));
+
+		d3.select("#telemetry-values-box > table .min").append("td")
+			.attr("class", "line" + i);
+
+		d3.select("#telemetry-values-box > table .max").append("td")
+			.attr("class", "line" + i);
+
+		d3.select("#telemetry-values-box > table .average").append("td")
+			.attr("class", "line" + i);
+
+		d3.select("#telemetry-values-box > table .mouse").append("td")
+			.attr("class", "line" + i)
+			.attr("id", "mouse-" + i)
+			.text(numberFormats[i](0));
+
+		// Connect event to checkbox
+		$(".checkbox-inline.line" + i +" input").on("click", function() {
+			var varName = "ui-show-value-" + $(this).attr("line");
+			value = $(this).is(':checked') ? 1: 0;
+			backend.variableSet(varName, value);
+			showHideLines();
+		});
+	}
+
+	// draw the axes
+	var drawAxes = function() {
+		for (var i = 0; i < data.length; i++) {
+			chart.append("g")
+				.attr("class", "y axis axis" + i)
+				.style("fill", data[i].color)
+				.call(yAxes[i]);
+
+			d3.select(".axis" + i + " path").style("stroke", data[i].color);
+				d3.selectAll(".axis" + i + " line").style("stroke", data[i].color);
+				d3.selectAll(".axis" + i + " text").style("fill", data[i].color);
+
+			chart.append("text")
+				.attr("class", "axis-label label" + i)
+				.attr("text-anchor", "middle")  // this makes it easy to centre the text as the transform is applied to the anchor
+				.style("fill", data[i].color)
+				.text(data[i].axisLabel);
+		}
+	};
+	drawAxes();
+
+	var showHideLines = function() {
+		for (var i = 0; i < data.length; i++) {
+			var checked = $(".checkbox-inline.line" + i +" input").is(':checked');
+			d3.select(".line" + i).style("opacity", checked ? 1: 0);
+			d3.select(".axis" + i).style("opacity", checked ? 1: 0);
+			d3.select(".label" + i).style("opacity", checked ? 1: 0);
+		}
+		chart.transition().call(zoom.transform, d3.zoomIdentity);
+	};
+
+	// Clip path for  strokes
+	chart.append("clipPath")
+		.attr("id", "rect-clip")
+		.append("rect")
+		.attr("x", 0)
+		.attr("y", 0)
+		.attr("height", height/2)
+		.attr("width", width/2);
+
+	// Draw the data strokes
+	var paths = [];
+	var valueLines = [];
+	var valuePaths = [];
+
+	var linesGroup = chart.append("g")
+		.attr("class", "lines-group")
+		.attr("clip-path", "url(#rect-clip)")
+
+	for (var i = 0; i < data.length; i++) {
+		valueLines[i] = d3.line()
+			.x(function(d) { return xScale(d.sec); })
+			.y((function() {var _i = i; return function(d) { return yScales[_i](d.value); }; })());
+
+		valuePaths[i] = linesGroup.append("path")
+			.attr("class", "line" + i)
+			.attr("clip-path", "url(#rect-clip)")
+			.style("stroke", data[i].color)
+			.style("fill", "none")
+			.attr("d", valueLines[i](data[i].values));
+	}
+	var pathStrokeWidth = parseInt(valuePaths[0].style("stroke-width"));
+
+	function zoomed() {
+
+		// Pan out of bounds
+		x0 = d3.event.transform.x;
+
+		if (d3.event.transform.x > 0) x0 = 0;
+		if ((xScale.range()[1] * d3.event.transform.k) + x0 < xScale.range()[1]) {
+			x0 = -(xScale.range()[1] * d3.event.transform.k - xScale.range()[1]);
+		}
+
+		for (var i = 0; i < valuePaths.length; i++) {
+			valuePaths[i].attr("transform", 'translate(' + x0 + ',0) scale(' + d3.event.transform.k + ',1)')
+				.style("stroke-width", pathStrokeWidth / d3.event.transform.k);
+		}
+
+		focusRect.attr("transform", 'translate(' + x0 + ',0) scale(' + d3.event.transform.k + ',1)');
+		focusLineX.attr("transform", 'translate(' + x0 + ',0) scale(' + d3.event.transform.k + ',1)')
+		.style("stroke-width", 1 / d3.event.transform.k);
+
+		d3.event.transform.x = x0;
+
+		d3.select('.x.axis.lower')
+		.call(xAxisLower.scale(d3.event.transform.rescaleX(xScale)));
+
+		d3.select('.x.axis.upper')
+		.call(xAxisUpper.scale(d3.event.transform.rescaleX(xScale)));
+
+
+		// update data table
+		var x1 = xScale.invert(0-d3.event.transform.x / d3.event.transform.k);
+		var x2 = xScale.invert((0-d3.event.transform.x / d3.event.transform.k) + xScale.range()[1] / d3.event.transform.k);
+		x1 = bisectSecLeft(data[0].values, x1);
+		x2 = bisectSecLeft(data[0].values, x2);
+		var values = [];
+		for (var i = 0; i < data.length; i++) {
+		valuesInView[i] = data[i].values.slice(Math.round(x1), Math.round(x2));
+		}
+
+		updateUi();
+	}
+
+	function resize() {
+		width =  Math.max(100, parseInt(svg.style("width")) - margin.left - margin.right);
+		height = Math.max(100, parseInt(svg.style("height")) - margin.top - margin.bottom);
+		chart.transition().call(zoom.transform, d3.zoomIdentity);
+	}
+
+	function updateUi() {
+		for (var i = 0; i < data.length; i++) {
+			d3.select("#telemetry-values-box > table .min .line" + i)
+				.text(numberFormats[i](d3.min(valuesInView[i], function(d) { return d.value; })));
+
+			d3.select("#telemetry-values-box > table .max .line" + i)
+				.text(numberFormats[i](d3.max(valuesInView[i], function(d) { return d.value; })));
+
+			d3.select("#telemetry-values-box > table .average .line" + i)
+				.text(numberFormats[i](valuesInView[i].reduce(function(sum, a) { return sum + a.value } , 0) / (valuesInView[i].length||1)));
+		}
+
+		// Update axes labels
+		var left = 0, right = 0;
+		for (var i = 0; i < data.length; i++) {
+			var $checkbox = $(".checkbox-inline.line" + i +" input");
+			var state = $checkbox.is(':checked');
+			if (state) {
+				left += (data[i].orient == "left") ? 1 : 0;
+				right += (data[i].orient == "right") ? 1 : 0;
+			}
+		}
+
+		margin.left = left * 67;
+		margin.right = right * 67;
+		width =  Math.max(100, parseInt(svg.style("width")) - margin.left - margin.right);
+
+		// Update the range of the scale with new width/height
+		xScale.range([0, width]);
+		for (var i = 0; i < data.length; i++) {
+			yScales[i].range([0, height]);
+		}
+
+		svg.attr("width", width + margin.left + margin.right)
+			.attr("height", height + margin.top + margin.bottom)
+			.select("g")
+			.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+		left = 0, right = 0;
+		for (var i = 0; i < data.length; i++) {
+			var transform;
+			if (data[i].orient == "left") {
+				transform = "translate(" + (0 - left * axisWidth) + ",0)";
+				transformLabel = "translate("+  (0 - left * axisWidth - 40) +","+(height/2)+")rotate(-90)";
+			} else {
+				transform = "translate(" + (width + right * axisWidth) + ",0)";
+				transformLabel = "translate("+ (width + right * axisWidth + 45) +","+(height/2)+")rotate(-90)";
+			}
+			d3.select(".axis-label.label" + i)
+				.attr("transform", transformLabel);
+			d3.select(".y.axis" + i)
+				.attr("transform", transform);
+			if ($(".checkbox-inline.line" + i +" input").is(':checked')) {
+				left += (data[i].orient == "left") ? 1 : 0;
+				right += (data[i].orient == "right") ? 1 : 0;
+			}
+		}
+
+		// update clip rect */
+		d3.select("#rect-clip rect")
+			.attr("width", width)
+			.attr("height", height);
+
+		// focus overlay
+		d3.select(".focus-overlay")
+			.attr('width', width)
+			.attr('height', height)
+
+		// Update the axis with the new scale
+		d3.select('.x.axis.lower')
+			.attr("transform", "translate(0," + height + ")")
+			.call(xAxisLower);
+		d3.select('.x.axis.upper')
+			.attr("transform", "translate(0,0)")
+			.call(xAxisUpper);
+
+		for (var i = 0; i < data.length; i++) {
+			d3.select('.y.axis' + i).call(yAxes[i]);
+		}
+
+		// Force D3 to recalculate and update the line
+		for (var i = 0; i < data.length; i++) {
+			d3.select(".line" + i)
+				.attr("clip-path", "url(#rect-clip)")
+				.attr("d", valueLines[i](data[i].values));
+		}
+	}
+
+	// focus tracking
+	var gFocus = chart.append('g');
+	var focus = gFocus.append('g').style('display', 'none');
+
+	var focusLineX = focus.append('line')
+		.attr('id', 'focusLineX')
+		.attr('class', 'focus-line');
+	var focusLineY = focus.append('line')
+		.attr('id', 'focusLineY')
+		.attr('class', 'focus-line');
+
+	var bisectSecLeft = d3.bisector(function(d) { return d.sec; }).left;
+	var bisectSecRight = d3.bisector(function(d) { return d.sec; }).right;
+
+	var focusRect = gFocus.append('rect')
+		.attr('class', 'focus-overlay')
+		.attr('width', width)
+		.attr('height', height)
+		.on('mouseover', function() { focus.style('display', null); })
+		.on('mouseout', function() { focus.style('display', 'none'); })
+		.on('mousemove', function() {
+			var mouse = d3.mouse(this);
+			var mouseSec = xScale.invert(mouse[0]);
+
+			for (var i = 0; i < data.length; i++) {
+				var dataIndex = bisectSecLeft(data[i].values, mouseSec);
+				var d0 = data[i].values[dataIndex - 1];
+				var d1 = data[i].values[dataIndex];
+				var d = mouseSec - d0.sec > d1.sec - mouseSec ? d1 : d0;
+
+				var value = d.value;
+				d3.select("#mouse-" + i).text(numberFormats[i](value));
+			}
+
+			// Crosshair
+			var x = mouse[0];
+			var y = mouse[1];
+
+			focus.select('#focusLineX')
+				.attr('x1', x).attr('y1', 0)
+				.attr('x2', x).attr('y2', height);
+
+			focus.select('#focusLineY')
+				.attr('x1', 0).attr('y1', y)
+				.attr('x2', width).attr('y2', y);
+		});
+
+	// resize event
+	d3.select(window).on('resize', resize);
+	updateUi();
+	showHideLines();
+}
+
+var altitudeUnit = '';
+var speedUnit = '';
+var temperatureUnit = '';
+
+var logId;
+ipc.on("init", function (event, logIdArg) {
+	logId = logIdArg;
+	backend.init(telemetryJS);
+});
+
+function telemetryJS() {
+	backend.getInfoByLogId(logId, function(err, info) {
+		$("#telemetry-title").text(info.model + " - " + info.battery + " (" + info.date + ")");
+	});
+
+	backend.getTelemetryLog(logId, function(err, data) {
+		if (err) return console.log(err);
+
+		async.waterfall([
+			function(callback) {
+				backend.variableGet("altitude-unit", "Meter", function(err, value) {
+					altitudeUnit = value;
+					callback(null);
+				});
+			},
+			function(callback) {
+				backend.variableGet("speed-unit", "kmh", function(err, value) {
+					speedUnit = value;
+					callback(null);
+				});
+			},
+			function(callback) {
+				backend.variableGet("temperature-unit", "Celsius", function(err, value) {
+					temperatureUnit = value;
+					callback(null);
+				});
+			},
+
+			function(callback) {
+				data = data.data;
+				var chartData = [
+					{
+						label: "Voltage",
+						axisLabel: "Voltage (U)",
+						color: "#1F77B4",
+						visible: true,
+						orient: "left",
+						values: [],
+						multiplier: 1.7,
+						numberFormat: ".1f"
+					},
+					{
+						label: "Current",
+						axisLabel: "Current (A)",
+						color: "#2CA02C",
+						visible: true,
+						orient: "left",
+						values: [],
+						multiplier: 1.3,
+						numberFormat: ".1f"
+					},
+					{
+						label: "Power",
+						axisLabel: "Power (W)",
+						color: "#8C564B",
+						visible: true,
+						orient: "left",
+						values: [],
+						multiplier: 1.1,
+						numberFormat: ".0f"
+					},
+					{
+						label: "Headspeed",
+						axisLabel: "Headspeed (RPM)",
+						color: "#FF7F0E",
+						visible: true,
+						orient: "right",
+						values: [],
+						multiplier: 1.3,
+						numberFormat: ".0f"
+					},
+					{
+						label: "PWM",
+						axisLabel: "PWM (%)",
+						color: "#D62728",
+						visible: true,
+						orient: "right",
+						values: [],
+						multiplier: 1.0,
+						numberFormat: ".0f"
+					},
+					{
+						label: "Capacity",
+						axisLabel: "Capacity (mAh)",
+						color: "#9467BD",
+						visible: true,
+						orient: "right",
+						values: [],
+						multiplier: 1.1,
+						numberFormat: ".0f"
+					},
+					{
+						label: "Temperature",
+						axisLabel: "Temperature (" + temperatureUnit + ')',
+						color: "#808000",
+						visible: true,
+						orient: "left",
+						values: [],
+						multiplier: 1.3,
+						numberFormat: ".0f"
+					},
+					{
+						label: "Speed",
+						axisLabel: "Speed (" + speedUnit + ")",
+						color: "#BCBD22",
+						visible: true,
+						orient: "left",
+						values: [],
+						multiplier: 1.1,
+						numberFormat: ".0f"
+					},
+					{
+						label: "Altitude",
+						axisLabel: "Altitude (" + altitudeUnit + ')',
+						color: "#E377C2",
+						visible: true,
+						orient: "right",
+						values: [],
+						multiplier: 1.1,
+						numberFormat: ".0f"
+					},
+				];
+
+				// Fill in values from backend data
+				var i,j;
+				for (i = 0; i < data.length; i++) {
+					chartData[0].values.push({ sec: data[i].sec, value: data[i].voltage });
+					chartData[1].values.push({ sec: data[i].sec, value: data[i].current });
+					chartData[2].values.push({ sec: data[i].sec, value: data[i].voltage * data[i].current });
+					chartData[3].values.push({ sec: data[i].sec, value: data[i].headspeed });
+					chartData[4].values.push({ sec: data[i].sec, value: data[i].pwm });
+					chartData[5].values.push({ sec: data[i].sec, value: data[i].usedCapacity });
+
+					if (temperatureUnit == "Fahrenheit") {
+						data[i].temp = data[i].temp * (9/5) + 32;
+					}
+					chartData[6].values.push({ sec: data[i].sec, value: data[i].temp });
+
+					if (speedUnit == "mph") {
+						data[i].speed *= 0.621371192;
+					}
+					chartData[7].values.push({ sec: data[i].sec, value: data[i].speed });
+
+					if (altitudeUnit == "Feet") {
+						data[i].height *= 3.280839895;
+					}
+					chartData[8].values.push({ sec: data[i].sec, value: data[i].height });
+
+				}
+
+				getShowLines(function(err, enabledLines) {
+					if (err) console.log(err);
+					drawChart(chartData, enabledLines);
+					callback(null);
+				});
+			}
+		]);
+	});
+}
+
+function getShowLines(callback, varNum, enabledLines) {
+	if (typeof varNum === "undefined") {
+		varNum = 0;
+		enabledLines = [];
+	}
+	if (varNum == 9) {
+		return callback(null, enabledLines);
+	}
+	backend.variableGet("ui-show-value-" + varNum, 1,
+		function(err, value) {
+			if (err) return callback(err);
+			enabledLines.push(value);
+			getShowLines(callback, varNum + 1, enabledLines);
+		}
+	);
+}
+
+</script>
+</body>
