@@ -8,7 +8,7 @@
     "electron-rebuild": "electron-rebuild -w sqlite3 -p && electron-rebuild -w ref && electron-rebuild -w ffi",
     "create-installer-win32-x64": "electron-packager . --arch=x64 --platform=win32 --out=dist --icon=.\\src\\ui\\asset\\logo\\logo.ico --overwrite --asar=true --version-string.ProductName=\"VBCAnalyzer\" && node .\\installers\\windows\\createinstaller.js",
     "create-installer-win32-ia32": "electron-packager . --arch=ia32 --platform=win32 --out=dist --icon=.\\src\\ui\\asset\\logo\\logo.ico --overwrite --asar=true --version-string.ProductName=\"VBCAnalyzer\" && node .\\installers\\windows\\createinstaller.js",
-    "create-installer-darwin-x64": "electron-packager . --arch=x64 --platform=darwin --out=dist --icon=./src/ui/asset/logo/logo.icns --overwrite --asar=true --version-string.ProductName=\"VBCAnalyzer\" && cd dist/VBCAnalyzer-darwin-x64 && zip -r ../VBCAnalyzer-v5.0.0-elcapitan.zip VBCAnalyzer.app",
+    "create-installer-darwin-x64": "electron-packager . --arch=x64 --platform=darwin --out=dist --icon=./src/ui/asset/logo/logo.icns --overwrite --asar=true --version-string.ProductName=\"VBCAnalyzer\" && cd dist/VBCAnalyzer-darwin-x64 && zip -r ../VBCAnalyzer-v5.1.0-elcapitan.zip VBCAnalyzer.app",
     "start": "electron .",
     "debug": "electron . --debug"
   },
