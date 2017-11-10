@@ -1,6 +1,6 @@
 {
   "name": "VBCAnalyzer",
-  "version": "5.0.0",
+  "version": "5.1.0",
   "description": "VBar Control Flight Analyzer",
   "main": "src/main.js",
   "scripts": {

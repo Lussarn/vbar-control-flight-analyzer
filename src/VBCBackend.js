@@ -845,7 +845,7 @@ var VBCBackend = function VBCBackend() {
 						modelLogFileSet.vbarLog = filename;
 						modelLogFileSet.uiLog = null;
 						// Check for ui log filename
-						for (suffix of ["_ui.csv", "_kon.csv", "_sco.csv"]) {
+						for (suffix of ["_ui.csv", "_kon.csv", "_sco.csv", "_yge.csv"]) {
 							let  uiFilename = path.join(logPath, modelName, modelLogFileSet.number + suffix);
 							try {
 								if (!fs.lstatSync(uiFilename).isFile()) continue;
